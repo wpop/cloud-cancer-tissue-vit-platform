@@ -1,0 +1,55 @@
+# ==========================
+# Model
+# ==========================
+
+model:
+  checkpoint: models/checkpoints/best_model.pt
+  image_size: 224
+  num_classes: 2
+
+# ==========================
+# Prediction
+# ==========================
+
+prediction:
+  confidence_threshold: 0.50
+  return_probabilities: true
+  top_k: 2
+
+# ==========================
+# Input
+# ==========================
+
+input:
+  supported_formats:
+    - jpg
+    - jpeg
+    - png
+    - tif
+    - tiff
+
+# ==========================
+# Output
+# ==========================
+
+output:
+  save_predictions: true
+  prediction_dir: outputs/predictions
+  save_probability_plot: true
+  save_attention_map: false
+
+# ==========================
+# API
+# ==========================
+
+api:
+  host: 0.0.0.0
+  port: 8000
+
+# ==========================
+# Device
+# ==========================
+
+device:
+  use_cuda: true
+

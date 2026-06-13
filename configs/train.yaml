@@ -1,0 +1,79 @@
+# ==========================
+# Dataset
+# ==========================
+
+dataset:
+  root_dir: /mnt/4086152D86152546/MedicalDatasets/PCam/pcam
+
+  train_images: camelyonpatch_level_2_split_train_x.h5
+  train_labels: camelyonpatch_level_2_split_train_y.h5
+
+  val_images: camelyonpatch_level_2_split_valid_x.h5
+  val_labels: camelyonpatch_level_2_split_valid_y.h5
+
+  image_size: 224
+  num_classes: 2
+
+# ==========================
+# Dataloader
+# ==========================
+
+dataloader:
+  batch_size: 8
+  # batch_size: 32
+  num_workers: 4
+  shuffle: true
+  pin_memory: true
+
+# ==========================
+# Model
+# ==========================
+
+model:
+  name: vit_b_16
+  pretrained: true
+
+# ==========================
+# Training
+# ==========================
+
+training:
+  epochs: 3
+  learning_rate: 0.0001
+  weight_decay: 0.00001
+  max_train_batches: 1000
+  max_val_batches: 200
+  log_every_n_batches: 100
+# training:
+#   epochs: 20
+#   learning_rate: 0.0001
+#   weight_decay: 0.00001
+
+# ==========================
+# Optimizer
+# ==========================
+
+optimizer:
+  name: AdamW
+
+# ==========================
+# Scheduler
+# ==========================
+
+scheduler:
+  name: CosineAnnealingLR
+
+# ==========================
+# Checkpoints
+# ==========================
+
+checkpoint:
+  save_dir: models/checkpoints
+  save_best_only: true
+
+# ==========================
+# Device
+# ==========================
+
+device:
+  use_cuda: true
