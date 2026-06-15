@@ -33,6 +33,14 @@ class PredictionArtifacts(BaseModel):
     probability_plot: str | None = None
 
 
+class ExplainArtifacts(PredictionArtifacts):
+    """
+    Paths to files created for an explanation response.
+    """
+
+    attention_overlay: str
+
+
 class PredictionResponse(BaseModel):
     """
     Prediction result returned by the ViT classifier.
@@ -60,3 +68,12 @@ class BatchPredictionResponse(BaseModel):
 
     num_files: int
     results: list[BatchPredictionResult]
+
+
+class ExplainResponse(PredictionResponse):
+    """
+    Prediction result with an explainability artifact.
+    """
+
+    artifacts: ExplainArtifacts
+    warning: str

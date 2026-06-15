@@ -186,6 +186,51 @@ def test_predict_with_unsupported_file(
     assert "Unsupported image type" in response.json()["detail"]
 
 
+def test_explain_with_valid_png(
+    client: TestClient,
+    monkeypatch,
+    api_test_config: dict,
+    tmp_path: Path,
+) -> None:
+    """
+    A valid PNG upload should return prediction data and an attention overlay.
+    """
+
+    monkeypatch.setattr("src.api.routes._predict_saved_image", fake_prediction)
+
+    def fake_attention_overlay(image_path: Path) -> str:
+        """
+        Write a small placeholder attention overlay for the explanation test.
+        """
+
+        output_path = tmp_path / "attention_maps" / f"{image_path.stem}_attention_overlay.png"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("attention overlay", encoding="utf-8")
+        return str(output_path)
+
+    monkeypatch.setattr("src.api.routes._save_attention_overlay", fake_attention_overlay)
+
+    image_path = get_test_image_path(tmp_path)
+    file_tuple = upload_file_tuple(image_path)
+    try:
+        response = client.post("/explain", files={"file": file_tuple})
+    finally:
+        file_tuple[1].close()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["filename"] == image_path.name
+    assert payload["predicted_class"] == "cancer"
+    assert payload["confidence"] == 0.91
+    assert payload["probabilities"] == {"benign": 0.09, "cancer": 0.91}
+    assert payload["warning"] == "Attention maps are visual aids and not clinical evidence."
+
+    artifacts = payload["artifacts"]
+    assert Path(artifacts["prediction_json"]).exists()
+    assert Path(artifacts["probability_plot"]).exists()
+    assert Path(artifacts["attention_overlay"]).exists()
+
+
 def test_predict_batch_with_valid_png_files(
     client: TestClient,
     monkeypatch,

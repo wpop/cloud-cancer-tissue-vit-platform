@@ -18,6 +18,7 @@ from src.api.model_loader import (
 from src.api.schemas import (
     BatchPredictionResponse,
     BatchPredictionResult,
+    ExplainResponse,
     HealthResponse,
     ModelStatusResponse,
     PredictionResponse,
@@ -30,6 +31,8 @@ router = APIRouter()
 
 DEFAULT_PREDICTION_DIR = Path("outputs") / "predictions"
 DEFAULT_PROBABILITY_PLOT_DIR = Path("outputs") / "figures"
+DEFAULT_ATTENTION_MAP_DIR = Path("outputs") / "attention_maps"
+EXPLAIN_WARNING = "Attention maps are visual aids and not clinical evidence."
 
 
 def _predict_saved_image(image_path) -> dict:
@@ -121,6 +124,47 @@ def _save_prediction_artifacts(image_path: Path, prediction: dict) -> dict:
     return artifacts
 
 
+def _save_attention_overlay(image_path: Path) -> str:
+    """
+    Save an attention overlay for one image and return its path.
+    """
+
+    from src.visualization.attention_map import save_attention_overlay
+
+    model = load_model()
+    config = get_inference_config()
+    image_size = int(config.get("model", {}).get("image_size", 224))
+    device = next(model.parameters()).device
+
+    output_config = config.get("output", {})
+    attention_map_dir = Path(
+        output_config.get("attention_map_dir", DEFAULT_ATTENTION_MAP_DIR)
+    )
+    attention_overlay_path = attention_map_dir / f"{image_path.stem}_attention_overlay.png"
+
+    save_attention_overlay(
+        model=model,
+        image_path=image_path,
+        save_path=attention_overlay_path,
+        image_size=image_size,
+        device=device,
+    )
+
+    return str(attention_overlay_path)
+
+
+def _build_explain_response(image_path: Path, prediction: dict) -> dict:
+    """
+    Add prediction artifacts and an attention overlay to an explanation response.
+    """
+
+    result = _build_prediction_response(image_path=image_path, prediction=prediction)
+    result["artifacts"]["attention_overlay"] = _save_attention_overlay(image_path)
+    result["warning"] = EXPLAIN_WARNING
+
+    return result
+
+
 @router.get("/health", response_model=HealthResponse)
 def read_health() -> HealthResponse:
     """
@@ -140,6 +184,31 @@ def read_model_status() -> ModelStatusResponse:
     """
 
     return ModelStatusResponse(**get_model_status())
+
+
+@router.post("/explain", response_model=ExplainResponse)
+async def explain(file: UploadFile = File(...)) -> ExplainResponse:
+    """
+    Run prediction and create an attention heatmap overlay for one image.
+    """
+
+    try:
+        image_path = await save_uploaded_image(file)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        prediction = _predict_saved_image(image_path)
+        result = _build_explain_response(
+            image_path=Path(image_path),
+            prediction=prediction,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Explanation failed: {exc}") from exc
+
+    return ExplainResponse(**result)
 
 
 @router.post("/predict", response_model=PredictionResponse)

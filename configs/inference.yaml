@@ -39,6 +39,7 @@ output:
   save_probability_plot: true
   probability_plot_dir: outputs/figures
   save_attention_map: false
+  attention_map_dir: outputs/attention_maps
 
 # ==========================
 # API
