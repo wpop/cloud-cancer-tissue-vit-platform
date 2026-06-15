@@ -1,0 +1,12 @@
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      MPLCONFIGDIR: /tmp/matplotlib
+    volumes:
+      - ../models/checkpoints:/app/models/checkpoints:ro
+      - ../outputs:/app/outputs

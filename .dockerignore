@@ -1,0 +1,10 @@
+data/
+outputs/
+models/
+.git/
+__pycache__/
+*.pyc
+notebooks/
+*.h5
+*.hdf5
+*.svs
