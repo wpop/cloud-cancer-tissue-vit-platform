@@ -2,6 +2,9 @@
 API routes for ViT tissue image inference.
 """
 
+import json
+from pathlib import Path
+
 import torch
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
@@ -25,6 +28,10 @@ from src.models.inference import predict_image
 router = APIRouter()
 
 
+DEFAULT_PREDICTION_DIR = Path("outputs") / "predictions"
+DEFAULT_PROBABILITY_PLOT_DIR = Path("outputs") / "figures"
+
+
 def _predict_saved_image(image_path) -> dict:
     """
     Run model inference for an image that has already been saved to disk.
@@ -42,6 +49,76 @@ def _predict_saved_image(image_path) -> dict:
         image_size=image_size,
         device=device,
     )
+
+
+def _build_prediction_response(image_path: Path, prediction: dict) -> dict:
+    """
+    Add filename and saved artifact paths to a prediction result.
+    """
+
+    artifacts = _save_prediction_artifacts(image_path=image_path, prediction=prediction)
+
+    return {
+        "filename": image_path.name,
+        **prediction,
+        "artifacts": artifacts,
+    }
+
+
+def _save_probability_plot(probabilities: dict[str, float], save_path: Path) -> None:
+    """
+    Save the probability plot, importing Matplotlib only when needed.
+    """
+
+    from src.visualization.probability_plot import save_probability_plot
+
+    save_probability_plot(
+        probabilities=probabilities,
+        save_path=save_path,
+    )
+
+
+def _save_prediction_artifacts(image_path: Path, prediction: dict) -> dict:
+    """
+    Save configured prediction artifacts and return their paths.
+    """
+
+    config = get_inference_config()
+    output_config = config.get("output", {})
+
+    artifacts = {
+        "prediction_json": None,
+        "probability_plot": None,
+    }
+
+    if output_config.get("save_predictions", True):
+        prediction_dir = Path(
+            output_config.get("prediction_dir", DEFAULT_PREDICTION_DIR)
+        )
+        prediction_dir.mkdir(parents=True, exist_ok=True)
+        prediction_json_path = prediction_dir / f"{image_path.stem}_prediction.json"
+
+        payload = {
+            "filename": image_path.name,
+            **prediction,
+        }
+        with prediction_json_path.open("w", encoding="utf-8") as file:
+            json.dump(payload, file, indent=4)
+
+        artifacts["prediction_json"] = str(prediction_json_path)
+
+    if output_config.get("save_probability_plot", True):
+        probability_plot_dir = Path(
+            output_config.get("probability_plot_dir", DEFAULT_PROBABILITY_PLOT_DIR)
+        )
+        probability_plot_path = probability_plot_dir / f"{image_path.stem}_probabilities.png"
+        _save_probability_plot(
+            probabilities=prediction["probabilities"],
+            save_path=probability_plot_path,
+        )
+        artifacts["probability_plot"] = str(probability_plot_path)
+
+    return artifacts
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -77,7 +154,11 @@ async def predict(file: UploadFile = File(...)) -> PredictionResponse:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     try:
-        result = _predict_saved_image(image_path)
+        prediction = _predict_saved_image(image_path)
+        result = _build_prediction_response(
+            image_path=Path(image_path),
+            prediction=prediction,
+        )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
@@ -101,10 +182,13 @@ async def predict_batch(files: list[UploadFile] = File(...)) -> BatchPredictionR
         for file in files:
             image_path = await save_uploaded_image(file)
             prediction = _predict_saved_image(image_path)
+            result = _build_prediction_response(
+                image_path=Path(image_path),
+                prediction=prediction,
+            )
             results.append(
                 BatchPredictionResult(
-                    filename=image_path.name,
-                    **prediction,
+                    **result,
                 )
             )
     except ValueError as exc:

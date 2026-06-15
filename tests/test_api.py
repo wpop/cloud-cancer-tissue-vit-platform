@@ -39,6 +39,50 @@ def fake_prediction(image_path: Path) -> dict:
     }
 
 
+@pytest.fixture
+def api_test_config(monkeypatch, tmp_path: Path) -> dict:
+    """
+    Use temporary API output directories during upload and artifact tests.
+    """
+
+    config = {
+        "model": {
+            "checkpoint": "models/checkpoints/best_model.pt",
+            "image_size": 224,
+            "num_classes": 2,
+        },
+        "input": {
+            "supported_formats": ["png", "jpg", "jpeg", "tif", "tiff"],
+        },
+        "output": {
+            "api_upload_dir": str(tmp_path / "api_uploads"),
+            "save_predictions": True,
+            "prediction_dir": str(tmp_path / "predictions"),
+            "save_probability_plot": True,
+            "probability_plot_dir": str(tmp_path / "figures"),
+        },
+    }
+
+    monkeypatch.setattr("src.api.file_utils.get_inference_config", lambda: config)
+    monkeypatch.setattr("src.api.routes.get_inference_config", lambda: config)
+
+    def fake_probability_plot(
+        probabilities: dict[str, float],
+        save_path: str | Path,
+    ) -> None:
+        """
+        Write a small placeholder file instead of rendering a real plot.
+        """
+
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        save_path.write_text(str(probabilities), encoding="utf-8")
+
+    monkeypatch.setattr("src.api.routes._save_probability_plot", fake_probability_plot)
+
+    return config
+
+
 def upload_file_tuple(path: Path, media_type: str = "image/png") -> tuple:
     """
     Build a FastAPI TestClient file tuple from a local path.
@@ -88,6 +132,7 @@ def test_model_status(client: TestClient) -> None:
 def test_predict_with_valid_png(
     client: TestClient,
     monkeypatch,
+    api_test_config: dict,
     tmp_path: Path,
 ) -> None:
     """
@@ -104,10 +149,26 @@ def test_predict_with_valid_png(
         file_tuple[1].close()
 
     assert response.status_code == 200
-    assert response.json() == fake_prediction(image_path)
+    payload = response.json()
+    assert payload["filename"] == image_path.name
+    assert payload["predicted_class"] == "cancer"
+    assert payload["confidence"] == 0.91
+    assert payload["probabilities"] == {"benign": 0.09, "cancer": 0.91}
+
+    artifacts = payload["artifacts"]
+    assert artifacts["prediction_json"].startswith(api_test_config["output"]["prediction_dir"])
+    assert artifacts["probability_plot"].startswith(
+        api_test_config["output"]["probability_plot_dir"]
+    )
+    assert Path(artifacts["prediction_json"]).exists()
+    assert Path(artifacts["probability_plot"]).exists()
 
 
-def test_predict_with_unsupported_file(client: TestClient, tmp_path: Path) -> None:
+def test_predict_with_unsupported_file(
+    client: TestClient,
+    api_test_config: dict,
+    tmp_path: Path,
+) -> None:
     """
     An unsupported upload extension should return a clear HTTP 400 error.
     """
@@ -128,6 +189,7 @@ def test_predict_with_unsupported_file(client: TestClient, tmp_path: Path) -> No
 def test_predict_batch_with_valid_png_files(
     client: TestClient,
     monkeypatch,
+    api_test_config: dict,
     tmp_path: Path,
 ) -> None:
     """
@@ -161,11 +223,20 @@ def test_predict_batch_with_valid_png_files(
         assert result["predicted_class"] == "cancer"
         assert result["confidence"] == 0.91
         assert result["probabilities"] == {"benign": 0.09, "cancer": 0.91}
+        assert result["artifacts"]["prediction_json"].startswith(
+            api_test_config["output"]["prediction_dir"]
+        )
+        assert result["artifacts"]["probability_plot"].startswith(
+            api_test_config["output"]["probability_plot_dir"]
+        )
+        assert Path(result["artifacts"]["prediction_json"]).exists()
+        assert Path(result["artifacts"]["probability_plot"]).exists()
 
 
 def test_predict_batch_with_unsupported_file(
     client: TestClient,
     monkeypatch,
+    api_test_config: dict,
     tmp_path: Path,
 ) -> None:
     """

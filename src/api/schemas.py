@@ -24,14 +24,25 @@ class ModelStatusResponse(BaseModel):
     checkpoint_path: str
 
 
+class PredictionArtifacts(BaseModel):
+    """
+    Paths to files created for a prediction.
+    """
+
+    prediction_json: str | None = None
+    probability_plot: str | None = None
+
+
 class PredictionResponse(BaseModel):
     """
     Prediction result returned by the ViT classifier.
     """
 
+    filename: str
     predicted_class: str
     confidence: float
     probabilities: dict[str, float]
+    artifacts: PredictionArtifacts
 
 
 class BatchPredictionResult(PredictionResponse):

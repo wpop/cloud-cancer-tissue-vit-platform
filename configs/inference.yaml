@@ -37,6 +37,7 @@ output:
   prediction_dir: outputs/predictions
   api_upload_dir: outputs/api_uploads
   save_probability_plot: true
+  probability_plot_dir: outputs/figures
   save_attention_map: false
 
 # ==========================
