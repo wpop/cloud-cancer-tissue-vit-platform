@@ -35,6 +35,7 @@ input:
 output:
   save_predictions: true
   prediction_dir: outputs/predictions
+  api_upload_dir: outputs/api_uploads
   save_probability_plot: true
   save_attention_map: false
 
@@ -52,4 +53,3 @@ api:
 
 device:
   use_cuda: true
-
