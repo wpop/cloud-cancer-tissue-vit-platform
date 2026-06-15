@@ -12,11 +12,36 @@ from src.api.model_loader import (
     get_model_status,
     load_model,
 )
-from src.api.schemas import HealthResponse, ModelStatusResponse, PredictionResponse
+from src.api.schemas import (
+    BatchPredictionResponse,
+    BatchPredictionResult,
+    HealthResponse,
+    ModelStatusResponse,
+    PredictionResponse,
+)
 from src.models.inference import predict_image
 
 
 router = APIRouter()
+
+
+def _predict_saved_image(image_path) -> dict:
+    """
+    Run model inference for an image that has already been saved to disk.
+    """
+
+    model = load_model()
+    config = get_inference_config()
+    image_size = int(config.get("model", {}).get("image_size", 224))
+    device = next(model.parameters()).device
+
+    return predict_image(
+        model=model,
+        image_path=image_path,
+        class_names=CLASS_NAMES,
+        image_size=image_size,
+        device=device,
+    )
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -52,21 +77,44 @@ async def predict(file: UploadFile = File(...)) -> PredictionResponse:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     try:
-        model = load_model()
-        config = get_inference_config()
-        image_size = int(config.get("model", {}).get("image_size", 224))
-        device = next(model.parameters()).device
-
-        result = predict_image(
-            model=model,
-            image_path=image_path,
-            class_names=CLASS_NAMES,
-            image_size=image_size,
-            device=device,
-        )
+        result = _predict_saved_image(image_path)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Prediction failed: {exc}") from exc
 
     return PredictionResponse(**result)
+
+
+@router.post("/predict-batch", response_model=BatchPredictionResponse)
+async def predict_batch(files: list[UploadFile] = File(...)) -> BatchPredictionResponse:
+    """
+    Save multiple uploaded tissue images and return one prediction per image.
+    """
+
+    if not files:
+        raise HTTPException(status_code=400, detail="At least one image file is required.")
+
+    results = []
+
+    try:
+        for file in files:
+            image_path = await save_uploaded_image(file)
+            prediction = _predict_saved_image(image_path)
+            results.append(
+                BatchPredictionResult(
+                    filename=image_path.name,
+                    **prediction,
+                )
+            )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Batch prediction failed: {exc}") from exc
+
+    return BatchPredictionResponse(
+        num_files=len(results),
+        results=results,
+    )

@@ -32,3 +32,20 @@ class PredictionResponse(BaseModel):
     predicted_class: str
     confidence: float
     probabilities: dict[str, float]
+
+
+class BatchPredictionResult(PredictionResponse):
+    """
+    Prediction result for one uploaded file in a batch.
+    """
+
+    filename: str
+
+
+class BatchPredictionResponse(BaseModel):
+    """
+    Prediction results for a batch of uploaded images.
+    """
+
+    num_files: int
+    results: list[BatchPredictionResult]
