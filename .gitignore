@@ -18,6 +18,7 @@ data/processed/
 *.tif
 *.tiff
 *.png
+!docs/images/*.png
 *.jpg
 *.jpeg
 
