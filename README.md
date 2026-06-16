@@ -32,17 +32,11 @@ The current inference workflow supports:
 
 ## 3. Demo
 
-### Prediction Interface
+## Frontend Demo
 
-The frontend provides a simple browser interface for selecting a tissue image, previewing it, running prediction, and viewing class probabilities.
+![Frontend Demo](docs/images/frontend_explain_prediction.png)
 
-![Prediction Interface](docs/images/frontend_prediction.png)
-
-### Explainable AI
-
-The `/explain` workflow generates a prediction and an attention overlay image. Attention maps are visual aids and are not clinical evidence.
-
-![Explainable AI](docs/images/frontend_explain.png)
+The web interface allows users to upload a tissue image, perform prediction, visualize class probabilities, and generate an attention overlay for explainable AI.
 
 ## 4. Architecture
 
