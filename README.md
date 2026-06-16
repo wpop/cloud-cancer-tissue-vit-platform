@@ -1,144 +1,158 @@
 # Cloud Cancer Tissue ViT Platform
 
-A cloud-based deep learning platform for **cancer tissue image classification** using **PyTorch Vision Transformers (ViT)**. The project provides an end-to-end pipeline for training, evaluating, and deploying image classification models through a **FastAPI** service with optional **AWS S3** storage and **EC2** deployment.
+## 1. Project Overview
 
----
+Cloud Cancer Tissue ViT Platform is a medical AI portfolio project for binary histopathology tissue classification using a **Vision Transformer ViT-B/16** model in **PyTorch**.
 
-## Features
+The project uses the **PCam Dataset** workflow for cancer tissue classification and includes model training utilities, evaluation metrics, a FastAPI inference service, explainable AI artifacts, a minimal static frontend, Docker support, and pytest tests.
 
-* PyTorch Vision Transformer (ViT) image classifier
-* Histopathology tissue image classification
-* Training and validation pipeline
-* Configurable training using YAML files
-* FastAPI inference service
-* Docker containerization
-* AWS S3 integration for image storage
-* Optional AWS EC2 deployment
-* Probability visualization for all predicted classes
-* Attention map visualization (planned)
-* Modular and extensible project architecture
+The current inference workflow supports:
 
----
+- Single image prediction
+- Batch image prediction
+- Explainable AI via attention overlay
+- Probability plot generation
+- Prediction JSON artifacts
+- Browser-based demo through a lightweight HTML/CSS/JavaScript frontend
 
-## Project Structure
+## 2. Features
+
+- **ViT-B/16 classification** with TorchVision and PyTorch
+- **PCam dataset pipeline** for histopathology image classification
+- **Evaluation metrics** and saved evaluation outputs
+- **FastAPI REST API** for inference
+- **Single prediction** endpoint
+- **Batch prediction** endpoint
+- **Explainable AI** endpoint with attention overlay generation
+- **Probability plot** artifact generation
+- **Prediction JSON** artifact generation
+- **Minimal frontend demo** without React or Node tooling
+- **Docker support** for CPU-based API serving
+- **Automated pytest tests**
+
+## 3. Demo
+
+### Prediction Interface
+
+The frontend provides a simple browser interface for selecting a tissue image, previewing it, running prediction, and viewing class probabilities.
+
+![Prediction Interface](docs/images/frontend_prediction.png)
+
+### Explainable AI
+
+The `/explain` workflow generates a prediction and an attention overlay image. Attention maps are visual aids and are not clinical evidence.
+
+![Explainable AI](docs/images/frontend_explain.png)
+
+## 4. Architecture
+
+```text
+Input tissue image
+        │
+        ▼
+FastAPI upload endpoint
+        │
+        ▼
+Image preprocessing
+        │
+        ▼
+TorchVision ViT-B/16 classifier
+        │
+        ├── Prediction JSON
+        ├── Probability plot
+        └── Attention overlay (/explain)
+        │
+        ▼
+Static frontend demo
+```
+
+The main API package lives under `src/api/`:
+
+- `app.py` creates the FastAPI application and serves the static frontend and output artifacts.
+- `routes.py` defines health, model status, prediction, batch prediction, and explainability endpoints.
+- `model_loader.py` loads and caches the trained ViT model.
+- `file_utils.py` handles uploaded image saving.
+- `schemas.py` defines API response models.
+
+## 5. API Endpoints
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/` | Static frontend demo |
+| `GET` | `/health` | API health and GPU availability |
+| `GET` | `/model/status` | Model load status and checkpoint path |
+| `POST` | `/predict` | Predict one uploaded image |
+| `POST` | `/predict-batch` | Predict multiple uploaded images |
+| `POST` | `/explain` | Predict one image and create an attention overlay |
+| `GET` | `/outputs/...` | Serve generated artifacts |
+
+Example single prediction:
+
+```bash
+curl -X POST http://127.0.0.1:8000/predict \
+  -F "file=@outputs/predictions/sample_pcam_image.png"
+```
+
+Example explainability request:
+
+```bash
+curl -X POST http://127.0.0.1:8000/explain \
+  -F "file=@outputs/predictions/sample_pcam_image.png"
+```
+
+## 6. Project Structure
 
 ```text
 cloud-cancer-tissue-vit-platform/
-│
 ├── configs/
-│   ├── train.yaml
+│   ├── aws.yaml
 │   ├── inference.yaml
-│   └── aws.yaml
-│
-├── data/
-│   ├── raw/
-│   ├── processed/
-│   └── samples/
-│
+│   └── train.yaml
 ├── docker/
-│
-├── models/
-│   ├── checkpoints/
-│   └── exported/
-│
-├── notebooks/
-│
-├── outputs/
-│   ├── figures/
-│   ├── logs/
-│   └── predictions/
-│
+│   ├── Dockerfile
+│   └── docker-compose.yml
+├── docs/
+│   └── images/
+├── frontend/
+│   ├── app.js
+│   ├── index.html
+│   └── styles.css
 ├── scripts/
-│
+│   ├── download_pcam.py
+│   ├── evaluate_model.py
+│   ├── prepare_dataset.py
+│   ├── run_api.sh
+│   └── train.sh
 ├── src/
 │   ├── api/
 │   ├── aws/
 │   ├── data/
+│   ├── evaluation/
 │   ├── models/
 │   ├── training/
 │   ├── utils/
 │   └── visualization/
-│
 ├── tests/
-│
 ├── README.md
-├── requirements.txt
-├── pyproject.toml
-└── .gitignore
+└── requirements.txt
 ```
 
----
+Runtime artifacts are written under `outputs/`, including:
 
-## Workflow
+- `outputs/api_uploads/`
+- `outputs/predictions/`
+- `outputs/figures/`
+- `outputs/attention_maps/`
+
+Model checkpoints are expected under:
 
 ```text
-Histopathology Image
-          │
-          ▼
-   Image Preprocessing
-          │
-          ▼
- Vision Transformer (ViT)
-          │
-          ▼
-  Classification Probabilities
-          │
-          ▼
-     FastAPI REST API
-          │
-          ▼
-     AWS S3 (Optional)
-          │
-          ▼
-     Web / Client Application
+models/checkpoints/best_model.pt
 ```
 
----
+## 7. Installation
 
-## Technology Stack
-
-| Category         | Technologies             |
-| ---------------- | ------------------------ |
-| Language         | Python 3.12              |
-| Deep Learning    | PyTorch, TorchVision     |
-| Computer Vision  | OpenCV, Pillow           |
-| Machine Learning | Vision Transformer (ViT) |
-| API              | FastAPI, Uvicorn         |
-| Cloud            | AWS S3, EC2              |
-| Containerization | Docker                   |
-| Configuration    | YAML                     |
-| Testing          | PyTest                   |
-
----
-
-## Planned Features
-
-* Vision Transformer (ViT-B/16)
-* Transfer Learning
-* Data Augmentation
-* Mixed Precision Training
-* Early Stopping
-* Checkpoint Management
-* ONNX Export
-* TorchScript Export
-* Batch Inference
-* Explainable AI (Attention Maps)
-* Grad-CAM Visualization
-* Docker Compose Deployment
-* AWS Cloud Deployment
-
----
-
-## Getting Started
-
-Clone the repository:
-
-```bash
-git clone https://github.com/your_username/cloud-cancer-tissue-vit-platform.git
-cd cloud-cancer-tissue-vit-platform
-```
-
-Create a virtual environment:
+Create and activate a Python environment:
 
 ```bash
 python -m venv venv
@@ -151,41 +165,115 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
+Prepare or download data as needed:
+
+```bash
+python scripts/download_pcam.py
+python scripts/prepare_dataset.py
+```
+
 Train the model:
 
 ```bash
 bash scripts/train.sh
 ```
 
-Run the inference API:
+Run evaluation:
+
+```bash
+bash scripts/evaluate.sh
+```
+
+## 8. Running the Frontend
+
+Start the FastAPI service:
 
 ```bash
 bash scripts/run_api.sh
 ```
 
----
+Open the frontend:
 
-## Future Roadmap
+```text
+http://127.0.0.1:8000/
+```
 
-* Support for Whole Slide Images (WSI)
-* Multi-class cancer classification
-* Swin Transformer implementation
-* Model benchmarking
-* Cloud-native deployment
-* Interactive web interface
-* Experiment tracking
-* CI/CD pipeline
+The frontend supports:
 
----
+- Image upload
+- Browser image preview
+- Prediction
+- Explainable AI attention overlay
+- Probability bars
+- Probability plot preview
+- Prediction JSON download
 
-## License
+The API must be able to load:
 
-This project is released under the MIT License.
+```text
+models/checkpoints/best_model.pt
+```
 
----
+## 9. Docker
 
-## Author
+Build the CPU-only Docker image:
 
-William Popkov
+```bash
+docker build -f docker/Dockerfile -t cloud-cancer-tissue-vit-api .
+```
 
-Computer Vision • Machine Learning • Medical Imaging • Robotics
+Run with Docker Compose:
+
+```bash
+docker compose -f docker/docker-compose.yml up --build
+```
+
+The compose setup mounts:
+
+- `models/checkpoints/` into the container as read-only model checkpoints
+- `outputs/` into the container for generated artifacts
+
+Test the running service:
+
+```bash
+curl http://127.0.0.1:8001/health
+```
+
+The current compose file maps host port `8001` to container port `8000`.
+
+## 10. Testing
+
+Run API and project tests:
+
+```bash
+pytest -q
+```
+
+Run only API tests:
+
+```bash
+pytest tests/test_api.py -q
+```
+
+The test suite includes FastAPI endpoint tests and project-level pytest coverage.
+
+## 11. Roadmap
+
+### Completed
+
+- ✅ ViT Classification
+- ✅ FastAPI
+- ✅ Batch Prediction
+- ✅ Explainable AI
+- ✅ Frontend Demo
+- ✅ Docker
+- ✅ PyTest
+
+### Planned
+
+- ⬜ AWS S3
+- ⬜ AWS EC2
+- ⬜ Whole Slide Images (WSI)
+- ⬜ DICOM support
+- ⬜ NIfTI support
+- ⬜ Model Registry
