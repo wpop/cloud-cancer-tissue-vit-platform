@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cloud Cancer Tissue ViT Platform</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <h1>Cloud Cancer Tissue ViT Platform</h1>
+          <p>Vision Transformer tissue classification demo</p>
+        </div>
+        <div id="apiStatus" class="status">Checking API...</div>
+      </header>
+
+      <section class="panel status-grid" aria-label="API and model status">
+        <div>
+          <span class="label">API</span>
+          <strong id="healthStatus">Unknown</strong>
+        </div>
+        <div>
+          <span class="label">GPU</span>
+          <strong id="gpuStatus">Unknown</strong>
+        </div>
+        <div>
+          <span class="label">Model</span>
+          <strong id="modelStatus">Unknown</strong>
+        </div>
+        <div>
+          <span class="label">Checkpoint</span>
+          <strong id="checkpointStatus">Unknown</strong>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <section class="panel image-panel" aria-label="Uploaded image">
+          <div class="panel-heading">
+            <div>
+              <span class="label">Input</span>
+              <h2>Tissue Image</h2>
+            </div>
+          </div>
+          <div class="preview-frame">
+            <img id="imagePreview" alt="Uploaded tissue preview" />
+            <div id="emptyPreview" class="empty-preview">No image selected</div>
+          </div>
+          <div class="controls">
+            <label class="file-label" for="imageInput">Select image</label>
+            <input id="imageInput" type="file" accept="image/*" />
+            <div class="button-row">
+              <button id="predictButton" type="button" disabled>Predict</button>
+              <button id="explainButton" type="button" disabled>Explain</button>
+              <button id="resetButton" class="secondary-button" type="button">Reset</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel result-panel" aria-label="Prediction result">
+          <div class="panel-heading">
+            <div>
+              <span class="label">Result</span>
+              <h2>Classification</h2>
+            </div>
+            <span id="predictionBadge" class="prediction-badge">Waiting</span>
+          </div>
+
+          <dl class="result-list">
+            <div>
+              <dt>Filename</dt>
+              <dd id="resultFilename">-</dd>
+            </div>
+            <div>
+              <dt>Predicted class</dt>
+              <dd id="resultClass">-</dd>
+            </div>
+            <div>
+              <dt>Confidence</dt>
+              <dd id="resultConfidence">-</dd>
+            </div>
+          </dl>
+
+          <div>
+            <span class="label">Class probabilities</span>
+            <div id="probabilities" class="probabilities empty-probabilities">
+              Run prediction to view probability bars.
+            </div>
+          </div>
+
+          <a id="downloadJson" class="download-button" href="#" download>
+            Download Prediction JSON
+          </a>
+          <p id="message" class="message"></p>
+        </section>
+      </section>
+
+      <section class="panel artifacts-panel" aria-label="Prediction artifacts">
+        <div class="panel-heading">
+          <div>
+            <span class="label">Artifacts</span>
+            <h2>Model Outputs</h2>
+          </div>
+        </div>
+
+        <div class="artifact-grid">
+          <figure>
+            <figcaption>Probability Plot</figcaption>
+            <img id="probabilityPlot" alt="Class probability plot" />
+            <div id="emptyPlot" class="artifact-empty">Run prediction or explanation</div>
+          </figure>
+          <figure>
+            <figcaption>Attention Overlay</figcaption>
+            <img id="attentionOverlay" alt="Attention heatmap overlay" />
+            <div id="emptyOverlay" class="artifact-empty">Run explanation</div>
+          </figure>
+        </div>
+
+        <p id="explainWarning" class="warning">
+          Attention maps are visual aids and are not clinical evidence.
+        </p>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
