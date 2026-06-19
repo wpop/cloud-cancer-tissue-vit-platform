@@ -6,6 +6,13 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from src.api.routes import router
+from src.aws.s3_client import (
+    AWSConfigurationError,
+    S3AccessDeniedError,
+    S3DownloadError,
+    S3InputError,
+    S3ObjectNotFoundError,
+)
 
 
 SAMPLE_IMAGE_PATH = Path("outputs/predictions/sample_pcam_image.png")
@@ -184,6 +191,77 @@ def test_predict_with_unsupported_file(
 
     assert response.status_code == 400
     assert "Unsupported image type" in response.json()["detail"]
+
+
+def test_predict_s3_returns_prediction_and_cleans_up(
+    client: TestClient,
+    monkeypatch,
+    api_test_config: dict,
+    tmp_path: Path,
+) -> None:
+    """A valid S3 request should predict without retaining local artifacts."""
+
+    downloaded_path = tmp_path / "unique-download.png"
+
+    def fake_download(bucket: str, key: str, supported_extensions: set[str]) -> Path:
+        assert bucket == "example-tissue-inputs"
+        assert key == "inference/sample.png"
+        assert "png" in supported_extensions
+        Image.new("RGB", (8, 8), color=(255, 0, 0)).save(downloaded_path)
+        return downloaded_path
+
+    monkeypatch.setattr("src.api.routes.download_s3_image", fake_download)
+    monkeypatch.setattr("src.api.routes._predict_saved_image", fake_prediction)
+
+    response = client.post(
+        "/predict-s3",
+        json={"bucket": "example-tissue-inputs", "key": "inference/sample.png"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["source"] == {
+        "bucket": "example-tissue-inputs",
+        "key": "inference/sample.png",
+    }
+    assert payload["filename"] == "sample.png"
+    assert payload["predicted_class"] == "cancer"
+    assert payload["artifacts"] == {
+        "prediction_json": None,
+        "probability_plot": None,
+    }
+    assert not downloaded_path.exists()
+
+
+@pytest.mark.parametrize(
+    ("error", "status_code"),
+    [
+        (S3InputError("invalid input"), 400),
+        (S3AccessDeniedError("access denied"), 403),
+        (S3ObjectNotFoundError("not found"), 404),
+        (AWSConfigurationError("configuration unavailable"), 503),
+        (S3DownloadError("download failed"), 500),
+    ],
+)
+def test_predict_s3_maps_expected_errors(
+    client: TestClient,
+    monkeypatch,
+    error: Exception,
+    status_code: int,
+) -> None:
+    """Expected S3 failures should map to stable HTTP status codes."""
+
+    def fake_download(*args, **kwargs) -> Path:
+        raise error
+
+    monkeypatch.setattr("src.api.routes.download_s3_image", fake_download)
+
+    response = client.post(
+        "/predict-s3",
+        json={"bucket": "example-tissue-inputs", "key": "inference/sample.png"},
+    )
+
+    assert response.status_code == status_code
 
 
 def test_explain_with_valid_png(

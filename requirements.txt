@@ -11,3 +11,4 @@ gdown
 fastapi
 uvicorn
 python-multipart
+boto3

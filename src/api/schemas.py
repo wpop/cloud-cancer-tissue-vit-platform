@@ -53,6 +53,26 @@ class PredictionResponse(BaseModel):
     artifacts: PredictionArtifacts
 
 
+class S3PredictionRequest(BaseModel):
+    """S3 location of one image to classify."""
+
+    bucket: str
+    key: str
+
+
+class S3Source(BaseModel):
+    """S3 source metadata returned with a prediction."""
+
+    bucket: str
+    key: str
+
+
+class S3PredictionResponse(PredictionResponse):
+    """Prediction result for an image downloaded from S3."""
+
+    source: S3Source
+
+
 class BatchPredictionResult(PredictionResponse):
     """
     Prediction result for one uploaded file in a batch.

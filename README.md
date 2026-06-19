@@ -76,6 +76,7 @@ The main API package lives under `src/api/`:
 | `GET` | `/health` | API health and GPU availability |
 | `GET` | `/model/status` | Model load status and checkpoint path |
 | `POST` | `/predict` | Predict one uploaded image |
+| `POST` | `/predict-s3` | Predict one allowlisted image from S3 |
 | `POST` | `/predict-batch` | Predict multiple uploaded images |
 | `POST` | `/explain` | Predict one image and create an attention overlay |
 | `GET` | `/outputs/...` | Serve generated artifacts |
@@ -85,6 +86,15 @@ Example single prediction:
 ```bash
 curl -X POST http://127.0.0.1:8000/predict \
   -F "file=@outputs/predictions/sample_pcam_image.png"
+```
+
+Example S3 prediction (configure allowlists in `configs/aws.yaml`; boto3 uses its
+standard credential chain):
+
+```bash
+curl -X POST http://127.0.0.1:8000/predict-s3 \
+  -H "Content-Type: application/json" \
+  -d '{"bucket":"example-tissue-inputs","key":"inference/sample.png"}'
 ```
 
 Example explainability request:

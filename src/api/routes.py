@@ -8,7 +8,7 @@ from pathlib import Path
 import torch
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from src.api.file_utils import save_uploaded_image
+from src.api.file_utils import get_supported_extensions, save_uploaded_image
 from src.api.model_loader import (
     CLASS_NAMES,
     get_inference_config,
@@ -22,8 +22,18 @@ from src.api.schemas import (
     HealthResponse,
     ModelStatusResponse,
     PredictionResponse,
+    S3PredictionRequest,
+    S3PredictionResponse,
 )
 from src.models.inference import predict_image
+from src.aws.s3_client import (
+    AWSConfigurationError,
+    S3AccessDeniedError,
+    S3DownloadError,
+    S3InputError,
+    S3ObjectNotFoundError,
+    download_s3_image,
+)
 
 
 router = APIRouter()
@@ -234,6 +244,45 @@ async def predict(file: UploadFile = File(...)) -> PredictionResponse:
         raise HTTPException(status_code=500, detail=f"Prediction failed: {exc}") from exc
 
     return PredictionResponse(**result)
+
+
+@router.post("/predict-s3", response_model=S3PredictionResponse)
+async def predict_s3(request: S3PredictionRequest) -> S3PredictionResponse:
+    """Download one allowlisted S3 image and run classification inference."""
+
+    image_path = None
+    try:
+        image_path = download_s3_image(
+            bucket=request.bucket,
+            key=request.key,
+            supported_extensions=get_supported_extensions(),
+        )
+        prediction = _predict_saved_image(image_path)
+        result = {
+            "source": {"bucket": request.bucket, "key": request.key},
+            "filename": Path(request.key).name,
+            **prediction,
+            "artifacts": {
+                "prediction_json": None,
+                "probability_plot": None,
+            },
+        }
+        return S3PredictionResponse(**result)
+    except S3InputError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except S3AccessDeniedError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except S3ObjectNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (AWSConfigurationError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except S3DownloadError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"S3 prediction failed: {exc}") from exc
+    finally:
+        if image_path is not None:
+            image_path.unlink(missing_ok=True)
 
 
 @router.post("/predict-batch", response_model=BatchPredictionResponse)
