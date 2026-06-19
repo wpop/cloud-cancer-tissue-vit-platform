@@ -42,3 +42,4 @@ outputs/
 # Environment
 .env
 .env.*
+!.env.example

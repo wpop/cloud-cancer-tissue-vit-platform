@@ -12,6 +12,7 @@ from src.aws.s3_client import (
     S3DownloadError,
     S3InputError,
     S3ObjectNotFoundError,
+    _load_s3_config,
 )
 
 
@@ -231,6 +232,54 @@ def test_predict_s3_returns_prediction_and_cleans_up(
         "probability_plot": None,
     }
     assert not downloaded_path.exists()
+
+
+def test_s3_config_reads_bucket_and_region_from_environment(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    """User-specific S3 settings should come from environment variables."""
+
+    yaml_config = {
+        "s3": {
+            "allowed_prefixes": ["inference/"],
+            "download_dir": str(tmp_path),
+            "max_object_size_mb": 25,
+        }
+    }
+    monkeypatch.setattr("src.aws.s3_client._load_environment", lambda: None)
+    monkeypatch.setattr("src.aws.s3_client.load_config", lambda path: yaml_config)
+    monkeypatch.setenv("AWS_BUCKET_NAME", "test-bucket")
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+
+    config = _load_s3_config()
+
+    assert config["allowed_buckets"] == ["test-bucket"]
+    assert config["region"] == "us-east-1"
+
+    monkeypatch.delenv("AWS_REGION")
+    assert _load_s3_config()["region"] == "ca-west-1"
+
+
+def test_s3_config_requires_bucket_environment_variable(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    """A missing AWS bucket environment variable should be a configuration error."""
+
+    yaml_config = {
+        "s3": {
+            "allowed_prefixes": ["inference/"],
+            "download_dir": str(tmp_path),
+            "max_object_size_mb": 25,
+        }
+    }
+    monkeypatch.setattr("src.aws.s3_client._load_environment", lambda: None)
+    monkeypatch.setattr("src.aws.s3_client.load_config", lambda path: yaml_config)
+    monkeypatch.delenv("AWS_BUCKET_NAME", raising=False)
+
+    with pytest.raises(AWSConfigurationError, match="AWS_BUCKET_NAME"):
+        _load_s3_config()
 
 
 @pytest.mark.parametrize(

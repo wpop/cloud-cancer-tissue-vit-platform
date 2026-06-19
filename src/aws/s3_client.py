@@ -1,5 +1,6 @@
 """Validated, read-only S3 downloads for API inference."""
 
+import os
 from pathlib import Path
 from typing import NoReturn
 from uuid import uuid4
@@ -30,15 +31,27 @@ class S3DownloadError(Exception):
     """An unexpected S3 download failure occurred."""
 
 
-def _load_s3_config() -> dict:
-    """Load and validate the S3 configuration section."""
+def _load_environment() -> None:
+    """Load local environment values without overriding existing variables."""
 
     try:
+        from dotenv import load_dotenv
+    except ImportError as exc:
+        raise AWSConfigurationError(
+            "python-dotenv unavailable; install project requirements."
+        ) from exc
+
+    load_dotenv()
+
+
+def _load_s3_config() -> dict:
+    """Load S3 settings from YAML and user-specific values from the environment."""
+
+    try:
+        _load_environment()
         config = load_config(AWS_CONFIG_PATH)
-        s3_config = config["s3"]
+        s3_config = dict(config["s3"])
         required_keys = {
-            "region",
-            "allowed_buckets",
             "allowed_prefixes",
             "download_dir",
             "max_object_size_mb",
@@ -47,11 +60,18 @@ def _load_s3_config() -> dict:
         if missing_keys:
             missing = ", ".join(sorted(missing_keys))
             raise ValueError(f"Missing S3 configuration values: {missing}")
-        if not s3_config["allowed_buckets"] or not s3_config["allowed_prefixes"]:
-            raise ValueError("S3 bucket and prefix allowlists must not be empty.")
+        bucket_name = os.getenv("AWS_BUCKET_NAME", "").strip()
+        if not bucket_name:
+            raise ValueError("AWS_BUCKET_NAME environment variable is required.")
+        if not s3_config["allowed_prefixes"]:
+            raise ValueError("S3 prefix allowlist must not be empty.")
         if float(s3_config["max_object_size_mb"]) <= 0:
             raise ValueError("S3 maximum object size must be greater than zero.")
+        s3_config["region"] = os.getenv("AWS_REGION", "ca-west-1").strip() or "ca-west-1"
+        s3_config["allowed_buckets"] = [bucket_name]
         return s3_config
+    except AWSConfigurationError:
+        raise
     except (FileNotFoundError, KeyError, TypeError, ValueError) as exc:
         raise AWSConfigurationError(f"AWS configuration unavailable: {exc}") from exc
 

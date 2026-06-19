@@ -1,7 +1,4 @@
 s3:
-  region: us-west-2
-  allowed_buckets:
-    - example-tissue-inputs
   allowed_prefixes:
     - inference/
   download_dir: outputs/s3_downloads

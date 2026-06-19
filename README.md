@@ -88,13 +88,27 @@ curl -X POST http://127.0.0.1:8000/predict \
   -F "file=@outputs/predictions/sample_pcam_image.png"
 ```
 
-Example S3 prediction (configure allowlists in `configs/aws.yaml`; boto3 uses its
-standard credential chain):
+For S3 inference, copy the environment template and set your bucket and region:
+
+```bash
+cp .env.example .env
+```
+
+```dotenv
+AWS_BUCKET_NAME=your-bucket-name
+AWS_REGION=ca-west-1
+```
+
+Keep AWS credentials outside the repository. Boto3 uses its standard credential
+chain, including credentials configured by `aws configure` in
+`~/.aws/credentials`; the application does not read access keys itself.
+
+Example S3 prediction:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/predict-s3 \
   -H "Content-Type: application/json" \
-  -d '{"bucket":"example-tissue-inputs","key":"inference/sample.png"}'
+  -d '{"bucket":"your-bucket-name","key":"inference/sample.png"}'
 ```
 
 Example explainability request:
